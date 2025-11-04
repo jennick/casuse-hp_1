@@ -1,0 +1,21 @@
+# Geheimen / env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+
+# Node / Vite
+node_modules/
+dist/
+*.log
+
+# Docker
+*.pid
+*.sock
+
+# VSCode
+.vscode/
+

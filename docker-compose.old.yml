@@ -1,0 +1,333 @@
+version: "3.9"
+
+services:
+  core-db:
+    image: postgres:15
+    container_name: casuse-hp-core-db
+    restart: always
+    environment:
+      POSTGRES_USER: casuse_hp
+      POSTGRES_PASSWORD: casuse_hp
+      POSTGRES_DB: casuse_hp
+    ports:
+      - "20011:5432"
+    volumes:
+      - core-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  core-backend:
+    build: { context: ./core-backend, dockerfile: Dockerfile }
+    container_name: casuse-hp-core-backend
+    restart: always
+    depends_on: [core-db]
+    env_file: [.env]
+    ports:
+      - "20010:20010"
+    networks: [casuse-hp-net]
+
+  core-frontend:
+    build: { context: ./core-frontend, dockerfile: Dockerfile }
+    container_name: casuse-hp-core-frontend
+    restart: always
+    depends_on: [core-backend]
+    environment:
+      - VITE_API_BASE=http://localhost:20010
+    ports:
+      - "20020:80"
+    networks: [casuse-hp-net]
+
+  verkoop-db:
+    image: postgres:15
+    container_name: casuse-hp-verkoop-db
+    restart: always
+    environment:
+      POSTGRES_USER: verkoop_user
+      POSTGRES_PASSWORD: verkoop_pass
+      POSTGRES_DB: verkoop_db
+    ports:
+      - "20031:5432"
+    volumes:
+      - verkoop-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  verkoop-backend:
+    build: { context: ./modules/verkoop/backend }
+    container_name: casuse-hp-verkoop-backend
+    restart: always
+    env_file: [.env]
+    environment:
+      MODULE_DB_DSN: postgresql+psycopg://verkoop_user:verkoop_pass@verkoop-db:5432/verkoop_db
+      MODULE_NAME: verkoop
+      MODULE_PORT: 20030
+    depends_on: [verkoop-db]
+    ports:
+      - "20030:20030"
+    networks: [casuse-hp-net]
+
+  verkoop-frontend:
+    build: { context: ./modules/verkoop/frontend }
+    container_name: casuse-hp-verkoop-frontend
+    restart: always
+    environment:
+      - VITE_MODULE_NAME=Verkoop
+      - VITE_API_BASE=http://localhost:20030
+    ports:
+      - "20040:80"
+    networks: [casuse-hp-net]
+
+  website-db:
+    image: postgres:15
+    container_name: casuse-hp-website-db
+    restart: always
+    environment:
+      POSTGRES_USER: website_user
+      POSTGRES_PASSWORD: website_pass
+      POSTGRES_DB: website_db
+    ports:
+      - "20051:5432"
+    volumes:
+      - website-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  website-backend:
+    build: { context: ./modules/website/backend }
+    container_name: casuse-hp-website-backend
+    restart: always
+    env_file: [.env]
+    environment:
+      MODULE_DB_DSN: postgresql+psycopg://website_user:website_pass@website-db:5432/website_db
+      MODULE_NAME: website
+      MODULE_PORT: 20050
+    depends_on: [website-db]
+    ports:
+      - "20050:20050"
+    networks: [casuse-hp-net]
+
+  website-frontend:
+    build: { context: ./modules/website/frontend }
+    container_name: casuse-hp-website-frontend
+    restart: always
+    environment:
+      - VITE_MODULE_NAME=Website
+      - VITE_API_BASE=http://localhost:20050
+    ports:
+      - "20060:80"
+    networks: [casuse-hp-net]
+
+  inventaries-db:
+    image: postgres:15
+    container_name: casuse-hp-inventaries-db
+    restart: always
+    environment:
+      POSTGRES_USER: inventaries_user
+      POSTGRES_PASSWORD: inventaries_pass
+      POSTGRES_DB: inventaries_db
+    ports:
+      - "20071:5432"
+    volumes:
+      - inventaries-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  inventaries-backend:
+    build: { context: ./modules/inventaries/backend }
+    container_name: casuse-hp-inventaries-backend
+    restart: always
+    env_file: [.env]
+    environment:
+      MODULE_DB_DSN: postgresql+psycopg://inventaries_user:inventaries_pass@inventaries-db:5432/inventaries_db
+      MODULE_NAME: inventaries
+      MODULE_PORT: 20070
+    depends_on: [inventaries-db]
+    ports:
+      - "20070:20070"
+    networks: [casuse-hp-net]
+
+  inventaries-frontend:
+    build: { context: ./modules/inventaries/frontend }
+    container_name: casuse-hp-inventaries-frontend
+    restart: always
+    environment:
+      - VITE_MODULE_NAME=Inventaries
+      - VITE_API_BASE=http://localhost:20070
+    ports:
+      - "20080:80"
+    networks: [casuse-hp-net]
+
+  facturatie-db:
+    image: postgres:15
+    container_name: casuse-hp-facturatie-db
+    restart: always
+    environment:
+      POSTGRES_USER: facturatie_user
+      POSTGRES_PASSWORD: facturatie_pass
+      POSTGRES_DB: facturatie_db
+    ports:
+      - "20101:5432"
+    volumes:
+      - facturatie-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  facturatie-backend:
+    build: { context: ./modules/facturatie/backend }
+    container_name: casuse-hp-facturatie-backend
+    restart: always
+    env_file: [.env]
+    environment:
+      MODULE_DB_DSN: postgresql+psycopg://facturatie_user:facturatie_pass@facturatie-db:5432/facturatie_db
+      MODULE_NAME: facturatie
+      MODULE_PORT: 20100
+    depends_on: [facturatie-db]
+    ports:
+      - "20100:20100"
+    networks: [casuse-hp-net]
+
+  facturatie-frontend:
+    build: { context: ./modules/facturatie/frontend }
+    container_name: casuse-hp-facturatie-frontend
+    restart: always
+    environment:
+      - VITE_MODULE_NAME=Facturatie
+      - VITE_API_BASE=http://localhost:20100
+    ports:
+      - "20110:80"
+    networks: [casuse-hp-net]
+
+  magazijn-db:
+    image: postgres:15
+    container_name: casuse-hp-magazijn-db
+    restart: always
+    environment:
+      POSTGRES_USER: magazijn_user
+      POSTGRES_PASSWORD: magazijn_pass
+      POSTGRES_DB: magazijn_db
+    ports:
+      - "20121:5432"
+    volumes:
+      - magazijn-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  magazijn-backend:
+    build: { context: ./modules/magazijn/backend }
+    container_name: casuse-hp-magazijn-backend
+    restart: always
+    env_file: [.env]
+    environment:
+      MODULE_DB_DSN: postgresql+psycopg://magazijn_user:magazijn_pass@magazijn-db:5432/magazijn_db
+      MODULE_NAME: magazijn
+      MODULE_PORT: 20120
+    depends_on: [magazijn-db]
+    ports:
+      - "20120:20120"
+    networks: [casuse-hp-net]
+
+  magazijn-frontend:
+    build: { context: ./modules/magazijn/frontend }
+    container_name: casuse-hp-magazijn-frontend
+    restart: always
+    environment:
+      - VITE_MODULE_NAME=Magazijn
+      - VITE_API_BASE=http://localhost:20120
+    ports:
+      - "20130:80"
+    networks: [casuse-hp-net]
+
+  productie-db:
+    image: postgres:15
+    container_name: casuse-hp-productie-db
+    restart: always
+    environment:
+      POSTGRES_USER: productie_user
+      POSTGRES_PASSWORD: productie_pass
+      POSTGRES_DB: productie_db
+    ports:
+      - "20141:5432"
+    volumes:
+      - productie-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  productie-backend:
+    build: { context: ./modules/productie/backend }
+    container_name: casuse-hp-productie-backend
+    restart: always
+    env_file: [.env]
+    environment:
+      MODULE_DB_DSN: postgresql+psycopg://productie_user:productie_pass@productie-db:5432/productie_db
+      MODULE_NAME: productie
+      MODULE_PORT: 20140
+    depends_on: [productie-db]
+    ports:
+      - "20140:20140"
+    networks: [casuse-hp-net]
+
+  productie-frontend:
+    build: { context: ./modules/productie/frontend }
+    container_name: casuse-hp-productie-frontend
+    restart: always
+    environment:
+      - VITE_MODULE_NAME=Productie
+      - VITE_API_BASE=http://localhost:20140
+    ports:
+      - "20150:80"
+    networks: [casuse-hp-net]
+
+  overzicht_modules-db:
+    image: postgres:15
+    container_name: casuse-hp-overzicht-modules-db
+    restart: always
+    environment:
+      POSTGRES_USER: overzicht-modules_user
+      POSTGRES_PASSWORD: overzicht-modules_pass
+      POSTGRES_DB: overzicht-modules_db
+    ports:
+      - "20161:5432"
+    volumes:
+      - overzicht-modules-db-data:/var/lib/postgresql/data
+    networks: [casuse-hp-net]
+
+  overzicht-modules-backend:
+    build: { context: ./modules/overzicht-modules/backend }
+    container_name: casuse-hp-overzicht-modules-backend
+    restart: always
+    env_file: [.env]
+    environment:
+      MODULE_DB_DSN: postgresql+psycopg://overzicht-modules_user:overzicht-modules_pass@overzicht_modules-db:5432/overzicht-modules_db
+      MODULE_NAME: overzicht-modules
+      MODULE_PORT: 20160
+    depends_on: [overzicht_modules-db]
+    ports:
+      - "20160:20160"
+    networks: [casuse-hp-net]
+
+  overzicht-modules-frontend:
+    build: { context: ./modules/overzicht-modules/frontend }
+    container_name: casuse-hp-overzicht-modules-frontend
+    restart: always
+    environment:
+      - VITE_MODULE_NAME=Overzicht-Modules
+      - VITE_API_BASE=http://localhost:20160
+    ports:
+      - "20162:80"
+    networks: [casuse-hp-net]
+
+  ai-tools:
+    build: { context: ./ai-tools }
+    container_name: casuse-hp-ai-tools
+    restart: always
+    env_file: [.env]
+    ports:
+      - "20170:20170"
+    networks: [casuse-hp-net]
+    depends_on: [core-backend]
+
+networks:
+  casuse-hp-net: {}
+
+volumes:
+  core-db-data: {}
+  verkoop-db-data: {}
+  website-db-data: {}
+  inventaries-db-data: {}
+  facturatie-db-data: {}
+  magazijn-db-data: {}
+  productie-db-data: {}
+  overzicht-modules-db-data: {}
