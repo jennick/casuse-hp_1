@@ -1,0 +1,46 @@
+name: casuse-verkoop
+services:
+  verkoop-db:
+    image: postgres:15
+    container_name: verkoop-db
+    environment:
+      POSTGRES_USER: verkoop
+      POSTGRES_PASSWORD: verkoop
+      POSTGRES_DB: verkoop
+    ports:
+      - "20031:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verkoop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - verkoop_db_data:/var/lib/postgresql/data
+
+  verkoop-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: verkoop-backend
+    depends_on:
+      - verkoop-db
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      WEBSITE_DB_URL: ${WEBSITE_DB_URL}
+    ports:
+      - "20030:20030"
+
+  verkoop-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: verkoop-frontend
+    depends_on:
+      - verkoop-backend
+    ports:
+      - "20040:80"
+
+volumes:
+  verkoop_db_data:

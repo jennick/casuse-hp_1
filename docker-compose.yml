@@ -41,45 +41,6 @@ services:
     depends_on:
       - core-backend
 
-  # =========================
-  # MODULE: VERKOOP
-  # =========================
-  verkoop-db:
-    image: postgres:15
-    container_name: casuse-hp-verkoop-db
-    environment:
-      POSTGRES_USER: casuse_hp_verkoop
-      POSTGRES_PASSWORD: casuse_hp_verkoop
-      POSTGRES_DB: casuse_hp_verkoop
-    ports:
-      - "20031:5432"
-    volumes:
-      - verkoop-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U casuse_hp_verkoop -d casuse_hp_verkoop"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  verkoop-backend:
-    build: ./modules/verkoop/backend
-    container_name: casuse-hp-verkoop-backend
-    environment:
-      APP_PORT: 20030
-      DATABASE_URL: postgresql+psycopg://casuse_hp_verkoop:casuse_hp_verkoop@verkoop-db:5432/casuse_hp_verkoop
-    depends_on:
-      verkoop-db:
-        condition: service_healthy
-    ports:
-      - "20030:20030"
-    command: >
-      sh -c "uvicorn app:app --host 0.0.0.0 --port 20030"
-
-  verkoop-frontend:
-    build: ./modules/verkoop/frontend
-    container_name: casuse-hp-verkoop-frontend
-    ports:
-      - "20040:80"
 
   # =========================
   # MODULE: WEBSITE
