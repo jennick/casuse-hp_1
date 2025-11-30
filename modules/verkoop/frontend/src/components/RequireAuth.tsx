@@ -1,18 +1,39 @@
-import React, { ReactNode } from "react";
+import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { loadAuthToken } from "../lib/api";
 
-type RequireAuthProps = {
-  children: ReactNode;
-};
+interface RequireAuthProps {
+  children: React.ReactNode;
+}
 
-export const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
+/**
+ * Simple auth guard for the verkoopmodule.
+ * We only check for a localStorage token for now.
+ * Later this can be wired to real JWT from Casuse-Core.
+ */
+const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
   const location = useLocation();
-  const token = loadAuthToken();
+
+  let token: string | null = null;
+  if (typeof window !== "undefined") {
+    try {
+      token = localStorage.getItem("verkoop_access_token");
+    } catch {
+      token = null;
+    }
+  }
 
   if (!token) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // Not authenticated: send to login page, remember where we came from
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
   return <>{children}</>;
 };
+
+export default RequireAuth;

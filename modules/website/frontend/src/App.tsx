@@ -288,6 +288,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false) // NIEUW: toggle voor zichtbaarheid
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -405,7 +406,7 @@ const LoginPage: React.FC = () => {
             Wachtwoord
           </label>
           <input
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={e => setPassword(e.target.value)}
             style={{
@@ -417,6 +418,26 @@ const LoginPage: React.FC = () => {
             }}
             required
           />
+          {/* Nieuw: checkbox om wachtwoord te tonen/verbergen */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              marginTop: '0.35rem',
+              fontSize: '0.8rem',
+              color: '#4b5563',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={showPassword}
+              onChange={e => setShowPassword(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            Wachtwoord tonen
+          </label>
         </div>
 
         <button
@@ -446,12 +467,12 @@ const LoginPage: React.FC = () => {
 const CustomersListPage: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerListItem[]>([])
   const [search, setSearch] = useState('')
-  const [filterType, setFilterType] = useState<'all'
-  | 'particulier'
-  | 'bedrijf'>('all')
-  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>(
-    'active',
-  )
+  const [filterType, setFilterType] = useState<
+    'all' | 'particulier' | 'bedrijf'
+  >('all')
+  const [statusFilter, setStatusFilter] = useState<
+    'active' | 'inactive' | 'all'
+  >('active')
   const [sortOption, setSortOption] = useState<
     'created_at_desc' | 'created_at_asc' | 'name_asc' | 'name_desc'
   >('created_at_desc')
@@ -1231,7 +1252,7 @@ const CustomerDetailPage: React.FC = () => {
           padding: '0.35rem 0.7rem',
           borderRadius: 4,
           border: '1px solid #d1d5db',
-          backgroundColor: '#f9fafb',
+          backgroundColor: '#f9f9fb',
           fontSize: '0.85rem',
           cursor: 'pointer',
         }}
@@ -1357,25 +1378,25 @@ const CustomerDetailPage: React.FC = () => {
                 {actionLoading ? 'Bezig...' : 'Activeren'}
               </button>
             )}
-{/* reset-wachtwoord knop alleen tonen als klant actief is */}
-{customer.is_active ? (
-  <button
-    type="button"
-    onClick={handleResetPassword}
-    disabled={actionLoading}
-    style={{
-      padding: '0.35rem 0.7rem',
-      borderRadius: 4,
-      border: '1px solid #2563eb',
-      backgroundColor: '#eff6ff',
-      fontSize: '0.85rem',
-      cursor: actionLoading ? 'default' : 'pointer',
-      opacity: actionLoading ? 0.7 : 1,
-    }}
-  >
-    {actionLoading ? 'Bezig met reset...' : 'Reset wachtwoord'}
-  </button>
-) : null}
+            {/* reset-wachtwoord knop alleen tonen als klant actief is */}
+            {customer.is_active ? (
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={actionLoading}
+                style={{
+                  padding: '0.35rem 0.7rem',
+                  borderRadius: 4,
+                  border: '1px solid #2563eb',
+                  backgroundColor: '#eff6ff',
+                  fontSize: '0.85rem',
+                  cursor: actionLoading ? 'default' : 'pointer',
+                  opacity: actionLoading ? 0.7 : 1,
+                }}
+              >
+                {actionLoading ? 'Bezig met reset...' : 'Reset wachtwoord'}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -2162,36 +2183,42 @@ const CustomerEditPage: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/customers"
-          element={
-            <ProtectedRoute>
-              <CustomersListPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customers/:id"
-          element={
-            <ProtectedRoute>
-              <CustomerDetailPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/customers/:id/edit"
-          element={
-            <ProtectedRoute>
-              <CustomerEditPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/customers" />} />
-      </Routes>
-    </Layout>
+<Layout>
+  <Routes>
+    {/* Login route (zonder ProtectedRoute) */}
+    <Route path="/login" element={<LoginPage />} />
+
+    {/* Beschermde routes */}
+    <Route
+      path="/customers"
+      element={
+        <ProtectedRoute>
+          <CustomersListPage />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/customers/:id"
+      element={
+        <ProtectedRoute>
+          <CustomerDetailPage />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/customers/:id/edit"
+      element={
+        <ProtectedRoute>
+          <CustomerEditPage />
+        </ProtectedRoute>
+      }
+    />
+
+    {/* Default redirect */}
+    <Route path="*" element={<Navigate to="/customers" />} />
+  </Routes>
+</Layout>
+
   )
 }
 

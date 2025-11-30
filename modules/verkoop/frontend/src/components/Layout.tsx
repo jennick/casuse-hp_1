@@ -1,59 +1,116 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import type { Lang } from "../App";
-import { Nav } from "./Nav";
-import DashboardPage from "../pages/Dashboard";
-import SellersPage from "../pages/Sellers";
-import AssignmentsPage from "../pages/Assignments";
-import QuotesPage from "../pages/Quotes";
-import OrdersPage from "../pages/Orders";
-import PaymentsPage from "../pages/Payments";
-import SettingsPage from "../pages/Settings";
-import FeasibilityPage from "../pages/Feasibility";
+import { NavLink, Outlet } from "react-router-dom";
 
-type LayoutProps = {
-  lang: Lang;
-  onLangChange: (lang: Lang) => void;
-};
+function getModulesBaseUrl(): string {
+  if (typeof import.meta !== "undefined") {
+    const env: any = (import.meta as any).env || {};
+    return env.VITE_MODULES_BASE_URL || "";
+  }
+  return "";
+}
 
-const Layout: React.FC<LayoutProps> = ({ lang, onLangChange }) => {
-  const handleBackToModules = () => {
-    window.location.href = "http://localhost:20020";
-  };
+const Layout: React.FC = () => {
+  const modulesBase = getModulesBaseUrl();
+
+  function goToModules() {
+    if (modulesBase) {
+      window.location.href = modulesBase;
+    } else {
+      // Fallback: als er geen URL is ingesteld, ga naar root
+      window.location.href = "/";
+    }
+  }
+
+  function handleLogout() {
+    try {
+      // Hier later JWT / refresh-tokens / localStorage keys van de verkoopmodule wissen
+      localStorage.removeItem("verkoop_access_token");
+      localStorage.removeItem("verkoop_refresh_token");
+    } catch {
+      // stil falen, is geen ramp
+    }
+
+    // Na logout altijd terug naar de modulespagina van casuse-hp
+    goToModules();
+  }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Nav lang={lang} onLangChange={onLangChange} />
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        <div className="flex justify-end mb-4">
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-title">Casuse · Verkoopmodule</div>
+        <div className="app-header-right">
           <button
             type="button"
-            onClick={handleBackToModules}
-            className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="button secondary"
+            style={{ marginRight: "0.5rem" }}
+            onClick={goToModules}
           >
             ← Terug naar modules
           </button>
+          <button
+            type="button"
+            className="button"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <Routes>
-            <Route path="/dashboard" element={<DashboardPage lang={lang} />} />
-            <Route path="/sellers" element={<SellersPage lang={lang} />} />
-            <Route
-              path="/assignments"
-              element={<AssignmentsPage lang={lang} />}
-            />
-            <Route path="/quotes" element={<QuotesPage lang={lang} />} />
-            <Route path="/orders" element={<OrdersPage lang={lang} />} />
-            <Route path="/payments" element={<PaymentsPage lang={lang} />} />
-            <Route
-              path="/feasibility"
-              element={<FeasibilityPage lang={lang} />}
-            />
-            <Route path="/settings" element={<SettingsPage lang={lang} />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </div>
-      </main>
+      </header>
+      <div className="app-main">
+        <nav className="app-nav">
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/sellers"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Verkopers
+          </NavLink>
+          <NavLink
+            to="/customers"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Klanten
+          </NavLink>
+          <NavLink
+            to="/quotes"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Offertes
+          </NavLink>
+          <NavLink
+            to="/orders"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Orders
+          </NavLink>
+          <NavLink
+            to="/assignments"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Toewijzingen
+          </NavLink>
+          <NavLink
+            to="/payments"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Betalingen
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Instellingen
+          </NavLink>
+        </nav>
+        <main className="app-content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 };

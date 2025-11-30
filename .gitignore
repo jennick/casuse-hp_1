@@ -1,21 +1,41 @@
-# Geheimen / env
-.env
-.env.*
-!.env.example
-
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.db
 
-# Node / Vite
+# Node / React
 node_modules/
 dist/
-*.log
+build/
+
+# Environment & secrets
+.env
+.env.*
+*.env
+.env.local
+.envrc
+.env.bak
 
 # Docker
 *.pid
-*.sock
+*.log
+docker-compose.override.yml
 
-# VSCode
+# IDE / OS clutter
 .vscode/
+.idea/
+.DS_Store
+Thumbs.db
 
+# Coverage / test
+.coverage
+htmlcov/
+
+# Ignore zip / backup dumps
+*.zip
+*.bak
+*.tar
+*.tgz
+*.7z

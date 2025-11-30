@@ -1,34 +1,88 @@
+from functools import lru_cache
+from typing import List, Union
 
-from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl
-from typing import List
+from pydantic import AnyHttpUrl, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
-    APP_NAME: str = "casuse-verkoop"
-    ENV: str = "dev"
-    SECRET_KEY: str = "changeme"
-    ACCESS_TOKEN_AUDIENCE: str = "casuse-hp"
-    ACCESS_TOKEN_ISSUER: str = "casuse-hp"
-    JWT_PUBLIC_KEY: str = "changeme"
-    JWT_ALGO: str = "RS256"
+    """
+    Applicatieconfiguratie voor de verkoop-backend.
 
+    - Alle waarden zijn overridebaar via environment variabelen.
+    - In docker-compose wordt normaliter een `.env` ingeladen.
+    """
+
+    # Algemene app-configuratie
+    APP_NAME: str = "Casuse Verkoopmodule"
+    PROJECT_NAME: str = "Casuse Verkoopmodule"  # backward compat
+    API_V1_STR: str = "/api/v1"
+
+    # Database connectiestring, bv.
+    # postgresql+psycopg://verkoop:verkoop@verkoop-db:5432/verkoop
     DATABASE_URL: str
-    WEBSITE_DB_URL: str | None = None
 
-    CORS_ALLOW_ORIGINS: str = "http://localhost:20040"
+    # ---------------- CORS-instellingen ----------------
+    # Kan in .env gezet worden als:
+    # BACKEND_CORS_ORIGINS=["http://localhost:20040","http://localhost:5173"]
+    # of als komma-gescheiden string:
+    # BACKEND_CORS_ORIGINS=http://localhost:20040,http://localhost:5173
+    BACKEND_CORS_ORIGINS: List[Union[AnyHttpUrl, str]] = []
 
-    AI_ADVISOR_ENABLED: bool = True
-    AUTO_ASSIGN_ENABLED: bool = True
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v):
+        """
+        Ondersteunt:
+        - lege waarde
+        - lijst ["http://...", "http://..."]
+        - string "http://...,http://..."
+        """
+        if not v:
+            return []
 
-    PAYMENTS_PROVIDER: str = "stripe"
-    PAYMENTS_WEBHOOK_SECRET: str = "changeme"
+        if isinstance(v, str):
+            # komma-gescheiden string => lijst
+            return [i.strip() for i in v.split(",") if i.strip()]
 
-    RATE_LIMIT_PER_MIN: int = 120
-    IDEMPOTENCY_TTL_SECONDS: int = 3600
+        if isinstance(v, (list, tuple)):
+            return list(v)
 
+        raise ValueError("BACKEND_CORS_ORIGINS heeft een ongeldig formaat")
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """
+        Interface die in app/main.py gebruikt wordt bij CORSMiddleware:
+
+            allow_origins = settings.cors_origins_list
+        """
+        if not self.BACKEND_CORS_ORIGINS:
+            # default: alles toelaten (kan je strenger maken in productie)
+            return ["*"]
+
+        return [str(origin) for origin in self.BACKEND_CORS_ORIGINS]
+
+    # --------------- Website-API (customer-sync) ---------------
+    # Wordt gebruikt door app/api/v1/customers_sync.py
+    WEBSITE_API_BASE_URL: str = "http://host.docker.internal:20052"
+    WEBSITE_ADMIN_EMAIL: str | None = None
+    WEBSITE_ADMIN_PASSWORD: str | None = None
+
+    # --------------- Logging ---------------
     LOG_LEVEL: str = "INFO"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="allow",
+    )
 
-settings = Settings()
+
+@lru_cache()
+def get_settings() -> Settings:
+    """Gecachte instantie zodat settings maar één keer geparset wordt."""
+    return Settings()
+
+
+settings = get_settings()

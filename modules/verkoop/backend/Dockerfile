@@ -13,5 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Alembic migrations on start
-CMD [ "bash", "-lc", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 20030" ]
+# Initialise database schema and demo data, then start API
+CMD ["bash", "-lc", "python -m app.scripts.init_db && uvicorn app.main:app --host 0.0.0.0 --port 20030"]

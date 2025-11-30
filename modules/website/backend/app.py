@@ -47,6 +47,7 @@ from initial_data import init_db
 import portal_models  # zorgt dat de nieuwe modellen geregistreerd worden
 import portal_crud
 import portal_schemas
+from sales_sync import router as sales_sync_router
 
 
 logger = logging.getLogger("website-backend")
@@ -67,6 +68,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Router voor verkopers-app → website → verkoop
+app.include_router(sales_sync_router)
 
 
 @app.on_event("startup")
@@ -283,7 +287,7 @@ def admin_list_customers(
         regex="^(created_at|name)$",
     ),
     sort_dir: str = Query(
-        "desc",
+        "asc",
         regex="^(asc|desc)$",
     ),
     db: Session = Depends(get_db),
