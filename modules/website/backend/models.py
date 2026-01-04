@@ -13,26 +13,64 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from database import Base
 
+
+# =====================================================
+# Helpers
+# =====================================================
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
+
+# =====================================================
+# Enums
+# =====================================================
 
 class CustomerType(str, enum.Enum):
     particulier = "particulier"
     bedrijf = "bedrijf"
 
 
-def utcnow():
-    return datetime.now(timezone.utc)
-
+# =====================================================
+# Customer
+# =====================================================
 
 class Customer(Base):
     __tablename__ = "customers"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # -------------------------------------------------
+    # Interne technische primary key
+    # -------------------------------------------------
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    # -------------------------------------------------
+    # 🔐 Extern, stabiel klant-ID (COMMIT 1)
+    # -------------------------------------------------
+    customer_uuid = Column(
+        UUID(as_uuid=True),
+        nullable=False,
+        unique=True,
+        index=True,
+        server_default=func.gen_random_uuid(),
+    )
+
+    # -------------------------------------------------
+    # Identiteit & login
+    # -------------------------------------------------
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=True)
 
+    # -------------------------------------------------
+    # Basisgegevens
+    # -------------------------------------------------
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     phone_number = Column(String(50), nullable=True)
@@ -40,12 +78,21 @@ class Customer(Base):
     customer_type = Column(Enum(CustomerType), nullable=False)
     description = Column(Text, nullable=True)
 
-    is_active = Column(Boolean, nullable=False, default=True)
+    # -------------------------------------------------
+    # Status / rechten
+    # -------------------------------------------------
+    is_active = Column(Boolean, nullable=False, default=False)
     is_admin = Column(Boolean, nullable=False, default=False)
 
+    # -------------------------------------------------
+    # Bedrijfsgegevens
+    # -------------------------------------------------
     company_name = Column(String(255), nullable=True)
     tax_id = Column(String(50), nullable=True)
 
+    # -------------------------------------------------
+    # Adres
+    # -------------------------------------------------
     address_street = Column(String(255), nullable=True)
     address_ext_number = Column(String(50), nullable=True)
     address_int_number = Column(String(50), nullable=True)
@@ -55,7 +102,14 @@ class Customer(Base):
     address_postal_code = Column(String(20), nullable=True)
     address_country = Column(String(100), nullable=False, default="Mexico")
 
-    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    # -------------------------------------------------
+    # Timestamps
+    # -------------------------------------------------
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+    )
     updated_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -63,16 +117,24 @@ class Customer(Base):
         onupdate=utcnow,
     )
 
+    # -------------------------------------------------
+    # Relaties
+    # -------------------------------------------------
     registration_tokens = relationship(
         "RegistrationToken",
         back_populates="customer",
         cascade="all, delete-orphan",
     )
 
-    # ─────────────────────────────────────────────
-    # Extra helpers voor portal / login status
-    # (geen nieuwe kolommen in de database)
-    # ─────────────────────────────────────────────
+    documents = relationship(
+        "CustomerDocument",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+    )
+
+    # -------------------------------------------------
+    # Helpers voor admin / portal (GEEN DB-kolommen)
+    # -------------------------------------------------
 
     @property
     def has_portal_password(self) -> bool:
@@ -85,17 +147,15 @@ class Customer(Base):
     @property
     def has_login(self) -> bool:
         """
-        Alias voor has_portal_password, zodat de Pydantic-schemas
-        (CustomerListItem / CustomerDetail) het veld 'has_login'
-        via from_orm kunnen invullen.
+        Alias voor has_portal_password, zodat Pydantic-schemas
+        het veld 'has_login' via from_orm kunnen gebruiken.
         """
         return self.has_portal_password
 
     @property
     def latest_registration_token(self):
         """
-        Handige helper om het meest recente registratietoken op te vragen.
-        Kan None zijn als er geen tokens zijn.
+        Geeft het meest recente registratietoken terug (of None).
         """
         if not self.registration_tokens:
             return None
@@ -104,25 +164,22 @@ class Customer(Base):
     @property
     def portal_status(self) -> str:
         """
-        Eenvoudige status om in de admin te tonen.
+        Afgeleide status voor admin-weergave.
 
         Mogelijke waarden:
-        - "active"              -> klant is actief en heeft een wachtwoord
-        - "invited"             -> uitnodiging verstuurd, nog niet gebruikt en niet verlopen
-        - "invitation_expired"  -> uitnodiging verstuurd, maar token is verlopen
-        - "no_invitation"       -> geen uitnodiging/token gevonden
+        - active
+        - invited
+        - invitation_expired
+        - no_invitation
         """
         if self.has_portal_password and self.is_active:
             return "active"
 
         token = self.latest_registration_token
-
         if token is None:
             return "no_invitation"
 
         if token.used:
-            # Token is gebruikt maar er is blijkbaar nog geen wachtwoord;
-            # dit zou normaal niet mogen voorkomen, maar we vangen het netjes op.
             return "no_invitation"
 
         if token.expires_at < utcnow():
@@ -131,23 +188,81 @@ class Customer(Base):
         return "invited"
 
 
+# =====================================================
+# RegistrationToken
+# =====================================================
+
 class RegistrationToken(Base):
     __tablename__ = "registration_tokens"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
     customer_id = Column(
         UUID(as_uuid=True),
         ForeignKey("customers.id", ondelete="CASCADE"),
         nullable=False,
     )
+
     token = Column(String(255), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
-    customer = relationship("Customer", back_populates="registration_tokens")
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+    )
 
-    # Extra helper om snel te checken of een token nog geldig is
+    customer = relationship(
+        "Customer",
+        back_populates="registration_tokens",
+    )
+
     @property
     def is_expired(self) -> bool:
         return self.expires_at < utcnow()
+
+
+# =====================================================
+# CustomerDocument
+# =====================================================
+
+class CustomerDocument(Base):
+    __tablename__ = "customer_documents"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    customer_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("customers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    name = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    mime_type = Column(String(100), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+    )
+
+    deleted_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    customer = relationship(
+        "Customer",
+        back_populates="documents",
+    )

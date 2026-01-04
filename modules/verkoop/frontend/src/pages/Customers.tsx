@@ -32,11 +32,10 @@ const CustomersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">(
-    "all"
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
 
-  // ⬇️ Nieuw toegevoegd: Sync‐status en bericht
   const [syncing, setSyncing] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -46,6 +45,7 @@ const CustomersPage: React.FC = () => {
 
     try {
       const params = new URLSearchParams();
+
       if (search.trim()) {
         params.set("search", search.trim());
       }
@@ -56,12 +56,11 @@ const CustomersPage: React.FC = () => {
       }
 
       const query = params.toString();
-      const path = query ? `/admin/customers?${query}` : "/admin/customers";
+      const path = query ? `/customers?${query}` : "/customers";
 
       const res = await api.get<CustomerListResponse>(path);
-      const list = res.items ?? [];
-      setItems(list);
-      setTotal(res.total ?? list.length);
+      setItems(res.items ?? []);
+      setTotal(res.total ?? 0);
     } catch (err: any) {
       console.error(err);
       if (err?.status === 401) {
@@ -83,19 +82,18 @@ const CustomersPage: React.FC = () => {
     void loadCustomers();
   }
 
-  // ⬇️ Nieuw toegevoegd: Sync‐functie
   async function handleSync() {
     setSyncing(true);
     setSyncMessage(null);
     setError(null);
 
     try {
-      const res = await api.post("/customers/sync-from-website", {});
+      await api.post("/customers-sync/run");
       setSyncMessage("Synchronisatie succesvol uitgevoerd.");
       await loadCustomers();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError("Synchronisatie mislukt. Controleer verbinding of backend.");
+      setError("Synchronisatie mislukt. Controleer backend.");
     } finally {
       setSyncing(false);
     }
@@ -103,11 +101,6 @@ const CustomersPage: React.FC = () => {
 
   function renderStatus(c: CustomerListItem) {
     const active = c.is_active;
-    const label = active ? "Actief" : "Inactief";
-    const bg = active ? "#dcfce7" : "#fee2e2";
-    const color = active ? "#166534" : "#991b1b";
-    const border = active ? "#bbf7d0" : "#fecaca";
-
     return (
       <span
         style={{
@@ -116,26 +109,25 @@ const CustomersPage: React.FC = () => {
           borderRadius: 9999,
           fontSize: "0.75rem",
           fontWeight: 500,
-          backgroundColor: bg,
-          color,
-          border: `1px solid ${border}`,
+          backgroundColor: active ? "#dcfce7" : "#fee2e2",
+          color: active ? "#166534" : "#991b1b",
+          border: `1px solid ${active ? "#bbf7d0" : "#fecaca"}`,
         }}
       >
-        {label}
+        {active ? "Actief" : "Inactief"}
       </span>
     );
   }
 
   return (
     <div className="card">
-      <h1 style={{ marginTop: 0, marginBottom: "0.25rem" }}>Klanten</h1>
-      <p style={{ marginTop: 0, marginBottom: "1rem", fontSize: "0.9rem" }}>
+      <h1>Klanten</h1>
+      <p>
         Overzicht van alle klanten die vanuit de Website-module zijn
         gesynchroniseerd naar de verkoopmodule.
       </p>
 
-      {/* ⬇️ Nieuwe knop */}
-      <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem" }}>
+      <div style={{ marginBottom: "1rem" }}>
         <button
           className="button secondary"
           onClick={handleSync}
@@ -145,28 +137,17 @@ const CustomersPage: React.FC = () => {
         </button>
       </div>
 
-      {syncMessage && (
-        <div className="alert success" style={{ marginBottom: "0.75rem" }}>
-          {syncMessage}
-        </div>
-      )}
+      {syncMessage && <div className="alert success">{syncMessage}</div>}
 
       <form
         onSubmit={handleSubmit}
-        style={{
-          marginBottom: "1rem",
-          display: "flex",
-          gap: "0.5rem",
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
+        style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}
       >
         <input
           type="text"
           placeholder="Zoek op naam of e-mail..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: "1 1 220px" }}
         />
         <select
           value={statusFilter}
@@ -178,63 +159,56 @@ const CustomersPage: React.FC = () => {
           <option value="active">Actief</option>
           <option value="inactive">Inactief</option>
         </select>
-        <button type="submit" className="button primary">
+        <button className="button primary" type="submit">
           Zoeken
         </button>
       </form>
 
-      {error && (
-        <div className="alert error" style={{ marginBottom: "0.75rem" }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="alert error">{error}</div>}
 
       {loading ? (
         <p>Laden...</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Naam</th>
-                <th>Email</th>
-                <th>Type</th>
-                <th>Bedrijf</th>
-                <th>Verkoper</th>
-                <th>Bron</th>
-                <th>Status</th>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Naam</th>
+              <th>Email</th>
+              <th>Type</th>
+              <th>Bedrijf</th>
+              <th>Verkoper</th>
+              <th>Bron</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c) => (
+              <tr
+                key={c.id}
+                onClick={() => navigate(`/customers/${c.id}`)}
+                style={{ cursor: "pointer" }}
+              >
+                <td>
+                  {c.first_name} {c.last_name}
+                </td>
+                <td>{c.email}</td>
+                <td>{c.customer_type}</td>
+                <td>{c.company_name || "-"}</td>
+                <td>{c.current_seller_name || c.current_seller_code || "-"}</td>
+                <td>{c.source || "-"}</td>
+                <td>{renderStatus(c)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => navigate(`/customers/${c.id}`)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <td>
-                    {c.first_name} {c.last_name}
-                  </td>
-                  <td>{c.email}</td>
-                  <td>{c.customer_type}</td>
-                  <td>{c.company_name || "-"}</td>
-                  <td>{c.current_seller_name || c.current_seller_code || "-"}</td>
-                  <td>{c.source || "-"}</td>
-                  <td>{renderStatus(c)}</td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={7}>Geen klanten gevonden.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <p style={{ marginTop: "0.5rem", fontSize: "0.85rem" }}>
-            Totaal: {total}
-          </p>
-        </div>
+            ))}
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={7}>Geen klanten gevonden.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       )}
+
+      <p style={{ marginTop: "0.5rem" }}>Totaal: {total}</p>
     </div>
   );
 };

@@ -13,8 +13,20 @@ from crud import get_customer_by_email
 from models import Customer
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/public/login")
+# =========================================================
+# OAuth2 scheme
+# =========================================================
+# ⚠️ Dit tokenUrl is ENKEL relevant voor OpenAPI / Swagger.
+# De effectieve login voor admin gebeurt via /api/admin/login
+# Klant-login wordt later apart behandeld.
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/admin/login"
+)
 
+
+# =========================================================
+# Database dependency
+# =========================================================
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
@@ -23,6 +35,17 @@ def get_db() -> Generator[Session, None, None]:
     finally:
         db.close()
 
+
+# =========================================================
+# Current user (GENERIC)
+# =========================================================
+# ⚠️ BELANGRIJK:
+# - Hier GEEN is_active check
+# - Deze dependency wordt gebruikt door:
+#   - admin routes
+#   - interne routes
+# - Statuscontrole gebeurt contextueel (bv. admin vs public)
+# =========================================================
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -36,22 +59,35 @@ def get_current_user(
 
     try:
         payload = decode_access_token(token)
-        email: str = payload.get("sub")
+
+        email: str | None = payload.get("sub")
         if email is None:
             raise credentials_exception
+
         token_data = TokenData(
             email=email,
             customer_id=payload.get("customer_id"),
             is_admin=payload.get("is_admin"),
         )
+
     except JWTError:
         raise credentials_exception
 
     user = get_customer_by_email(db, token_data.email)
-    if user is None or not user.is_active:
+
+    # ❗ GEEN is_active check hier
+    if user is None:
         raise credentials_exception
+
     return user
 
+
+# =========================================================
+# Current admin user
+# =========================================================
+# - Enkel admins toegelaten
+# - Wordt gebruikt door /api/admin/*
+# =========================================================
 
 def get_current_admin_user(
     current_user: Customer = Depends(get_current_user),
@@ -59,6 +95,7 @@ def get_current_admin_user(
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions",
+            detail="Admin access required",
         )
+
     return current_user

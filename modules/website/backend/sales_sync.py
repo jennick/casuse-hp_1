@@ -153,7 +153,12 @@ def public_register_from_sales_app(
             is_admin=False,
         )
 
-    synced = sync_customer_to_sales(customer, seller_code)
+    # 🔒 Enkel syncen naar verkoop als de klant zijn registratie
+    # volledig heeft afgerond (wachtwoord ingesteld)
+    if customer.has_login:
+        synced = sync_customer_to_sales(customer, seller_code)
+    else:
+        synced = False
 
     return SalesAppCustomerCreateResponse(
         success=True,
@@ -161,3 +166,4 @@ def public_register_from_sales_app(
         already_existed=already_existed,
         synced_to_sales=synced,
     )
+

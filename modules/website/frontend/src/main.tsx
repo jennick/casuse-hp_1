@@ -1,14 +1,16 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import App from './App'
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 
-const rootElement = document.getElementById('root') as HTMLElement
+import App from "./app/App";
 
-ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-)
+const container = document.getElementById("root");
+
+if (!container) {
+  throw new Error("Root container missing in index.html");
+}
+
+createRoot(container).render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);

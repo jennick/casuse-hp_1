@@ -8,6 +8,7 @@ interface LocationState {
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // <-- NIEUW
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
@@ -23,12 +24,11 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    // TODO: hier later echte API-call naar verkoop-backend of Casuse-Core.
-    // Voor nu simuleren we een geslaagde login met een dummy token.
+    // TODO: hier later echte API-call naar verkoop-backend.
     try {
       localStorage.setItem("verkoop_access_token", "dev-token");
     } catch {
-      // niets, in dev is dit genoeg
+      // niets
     }
 
     const destination =
@@ -44,6 +44,7 @@ const LoginPage: React.FC = () => {
       <header className="app-header">
         <div className="app-header-title">Casuse · Verkoopmodule</div>
       </header>
+
       <div className="app-main">
         <main
           className="app-content"
@@ -54,10 +55,7 @@ const LoginPage: React.FC = () => {
             paddingTop: "4rem",
           }}
         >
-          <div
-            className="card"
-            style={{ maxWidth: "420px", width: "100%" }}
-          >
+          <div className="card" style={{ maxWidth: "420px", width: "100%" }}>
             <h1>Inloggen verkoopmodule</h1>
             <p
               style={{
@@ -67,10 +65,12 @@ const LoginPage: React.FC = () => {
                 marginBottom: "1rem",
               }}
             >
-              Meld je aan met je verkoop-account. Alleen gebruikers met
-              toegang tot deze module kunnen door.
+              Meld je aan met je verkoop-account. Alleen gebruikers met toegang
+              tot deze module kunnen door.
             </p>
+
             <form onSubmit={handleSubmit} className="form-grid">
+              {/* EMAIL */}
               <div className="form-field">
                 <label>E-mail</label>
                 <input
@@ -80,15 +80,39 @@ const LoginPage: React.FC = () => {
                   autoComplete="username"
                 />
               </div>
-              <div className="form-field">
+
+              {/* PASSWORD MET OOGJE */}
+              <div className="form-field" style={{ position: "relative" }}>
                 <label>Wachtwoord</label>
+
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"} // <-- toggle
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
+                  style={{ paddingRight: "36px" }} // ruimte voor oogje
                 />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "8px",
+                    top: "36px",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "1.1rem",
+                  }}
+                  aria-label="Toon of verberg wachtwoord"
+                >
+                  {showPassword ? "👁️‍🗨️" : "👁️"}
+                </button>
               </div>
+
+              {/* ERROR */}
               {error && (
                 <p
                   style={{
@@ -101,6 +125,8 @@ const LoginPage: React.FC = () => {
                   {error}
                 </p>
               )}
+
+              {/* SUBMIT */}
               <div
                 style={{
                   gridColumn: "1 / -1",

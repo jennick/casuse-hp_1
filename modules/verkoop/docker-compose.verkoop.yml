@@ -17,6 +17,9 @@ services:
       retries: 10
     volumes:
       - verkoop_db_data:/var/lib/postgresql/data
+    networks:
+      - casuse-net
+
 
   verkoop-backend:
     build:
@@ -32,6 +35,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
     ports:
       - "20030:20030"
+    networks:
+      - casuse-net
 
   verkoop-frontend:
     build:
@@ -45,3 +50,7 @@ services:
 
 volumes:
   verkoop_db_data:
+
+networks:
+  casuse-net:
+    external: true

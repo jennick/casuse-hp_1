@@ -1,0 +1,117 @@
+
+services:
+  website-db:
+    image: postgres:15
+    container_name: casuse-hp-website-db
+    environment:
+      POSTGRES_DB: casuse_hp_website
+      POSTGRES_USER: website_user
+      POSTGRES_PASSWORD: website_password
+    ports:
+      - "20051:5432"
+    volumes:
+      - website-db-data:/var/lib/postgresql/data
+    networks:
+      - casuse-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U website_user -d casuse_hp_website"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  website-backend:
+    build:
+      context: ./modules/website/backend
+    image: casuse-hp-website-backend
+    container_name: casuse-hp-website-backend
+    depends_on:
+      website-db:
+        condition: service_healthy
+    command: sh -c "cron -f & uvicorn app:app --host 0.0.0.0 --port 8000"
+    environment:
+      # =========================
+      # DATABASE
+      # =========================
+      WEBSITE_DB_HOST: website-db
+      WEBSITE_DB_PORT: "5432"
+      WEBSITE_DB_NAME: casuse_hp_website
+      WEBSITE_DB_USER: website_user
+      WEBSITE_DB_PASSWORD: website_password
+
+      # =========================
+      # BACKEND
+      # =========================
+      WEBSITE_BACKEND_PORT: "8000"
+      WEBSITE_ENV: "local"
+
+      # =========================
+      # JWT
+      # =========================
+      WEBSITE_JWT_SECRET: "CHANGE_ME_LOCAL_ONLY"
+      WEBSITE_JWT_ALGORITHM: "HS256"
+      WEBSITE_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+
+      # =========================
+      # REGISTRATION TOKENS
+      # =========================
+      WEBSITE_REGISTRATION_TOKEN_TTL_MINUTES: "60"
+
+      # =========================
+      # EMAIL (MAILHOG)
+      # =========================
+      WEBSITE_EMAIL_ENABLED: "true"
+      WEBSITE_SMTP_HOST: "website-mailhog"
+      WEBSITE_SMTP_PORT: "1025"
+      WEBSITE_SMTP_USERNAME: ""
+      WEBSITE_SMTP_PASSWORD: ""
+      WEBSITE_SMTP_USE_TLS: "false"
+      WEBSITE_SMTP_USE_SSL: "false"
+      WEBSITE_EMAIL_FROM: "Casuse <no-reply@casuse.mx>"
+
+      # =========================
+      # PUBLIC / CORS
+      # =========================
+      WEBSITE_PUBLIC_BASE_URL: "http://localhost:20060"
+      WEBSITE_CORS_ORIGINS: "http://localhost:20060,http://localhost:20190"
+
+      # =========================
+      # INTERNAL API
+      # =========================
+      INTERNAL_API_KEY: "casuse-internal-2025"
+    ports:
+      - "20052:8000"
+    networks:
+      - casuse-net
+
+  website-frontend:
+    build:
+      context: ./modules/website/frontend
+      args:
+        VITE_WEBSITE_API_BASE_URL: "http://localhost:20052"
+    image: casuse-hp-website-frontend
+    container_name: casuse-hp-website-frontend
+    depends_on:
+      - website-backend
+    environment:
+      VITE_WEBSITE_API_BASE_URL: "http://localhost:20052"
+    ports:
+      - "20060:80"
+    networks:
+      - casuse-net
+
+  website-mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: casuse-hp-website-mailhog
+    restart: unless-stopped
+    ports:
+      - "20053:8025"
+      - "1025:1025"    # SMTP
+    networks:
+      - casuse-net
+
+volumes:
+  website-db-data:
+
+networks:
+  casuse-net:
+    external: true

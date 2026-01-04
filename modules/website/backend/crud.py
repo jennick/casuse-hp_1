@@ -1,7 +1,7 @@
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Literal
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -11,6 +11,10 @@ from schemas import RegistrationRequest, CustomerUpdate
 from config import settings
 from security import verify_password, get_password_hash
 
+
+# =====================================================
+# GETTERS
+# =====================================================
 
 def get_customer_by_email(db: Session, email: str) -> Optional[Customer]:
     return (
@@ -23,6 +27,10 @@ def get_customer_by_email(db: Session, email: str) -> Optional[Customer]:
 def get_customer(db: Session, customer_id: uuid.UUID) -> Optional[Customer]:
     return db.query(Customer).filter(Customer.id == customer_id).first()
 
+
+# =====================================================
+# CREATE
+# =====================================================
 
 def create_customer(
     db: Session,
@@ -38,7 +46,7 @@ def create_customer(
         phone_number=registration.phone_number,
         customer_type=registration.customer_type,
         description=registration.description,
-        is_active=True,
+        is_active=True if is_admin else False,
         is_admin=is_admin,
         company_name=registration.company_name,
         tax_id=registration.tax_id,
@@ -57,6 +65,10 @@ def create_customer(
     return customer
 
 
+# =====================================================
+# LIST (CENTRAAL)
+# =====================================================
+
 def list_customers(
     db: Session,
     search: Optional[str] = None,
@@ -66,24 +78,38 @@ def list_customers(
     status: str = "active",
     sort_by: str = "created_at",
     sort_dir: str = "desc",
+    visibility: Literal["admin", "public"] = "admin",
 ) -> Tuple[List[Customer], int]:
     """
-    Lijst klanten voor admin, met:
-    - status filter: active / inactive / all
-    - sortering: created_at|name + asc|desc
+    Centrale klantenlijst.
+
+    visibility:
+    - admin  -> alle klanten (ook zonder login)
+    - public -> enkel klanten met afgeronde login
     """
+
     query = db.query(Customer)
 
-    # status filter
+    # -----------------------
+    # STATUS FILTER
+    # -----------------------
     if status == "inactive":
         query = query.filter(Customer.is_active.is_(False))
     elif status == "all":
-        # geen extra filter
         pass
-    else:  # "active" of ongeldige waarde -> default naar active
+    else:  # default: active
         query = query.filter(Customer.is_active.is_(True))
 
-    # zoekterm
+    # -----------------------
+    # PUBLIC VISIBILITY FILTER
+    # -----------------------
+    if visibility == "public":
+        query = query.filter(Customer.hashed_password.isnot(None))
+        query = query.filter(Customer.is_active.is_(True))
+
+    # -----------------------
+    # SEARCH
+    # -----------------------
     if search:
         term = f"%{search.lower()}%"
         query = query.filter(
@@ -95,13 +121,17 @@ def list_customers(
             )
         )
 
-    # type filter
+    # -----------------------
+    # TYPE FILTER
+    # -----------------------
     if customer_type:
         query = query.filter(Customer.customer_type == customer_type)
 
     total = query.count()
 
-    # sortering
+    # -----------------------
+    # SORTING
+    # -----------------------
     if sort_by == "name":
         if sort_dir == "asc":
             query = query.order_by(
@@ -113,7 +143,7 @@ def list_customers(
                 Customer.last_name.desc(),
                 Customer.first_name.desc(),
             )
-    else:  # created_at (default)
+    else:  # created_at
         if sort_dir == "asc":
             query = query.order_by(Customer.created_at.asc())
         else:
@@ -122,6 +152,10 @@ def list_customers(
     items = query.offset(skip).limit(limit).all()
     return items, total
 
+
+# =====================================================
+# REGISTRATION TOKENS
+# =====================================================
 
 def create_registration_token(
     db: Session,
@@ -163,14 +197,10 @@ def mark_registration_token_used(
     db.commit()
 
 
-# === Helpers voor admin password reset ===
-
-
-def mark_all_tokens_used_for_customer(db: Session, customer_id: uuid.UUID) -> None:
-    """
-    Zet alle nog niet-gebruikte tokens voor deze klant op used=True.
-    Hiermee zorgen we dat enkel de meest recente token nog 'geldig' is.
-    """
+def mark_all_tokens_used_for_customer(
+    db: Session,
+    customer_id: uuid.UUID,
+) -> None:
     (
         db.query(RegistrationToken)
         .filter(
@@ -182,15 +212,15 @@ def mark_all_tokens_used_for_customer(db: Session, customer_id: uuid.UUID) -> No
     db.commit()
 
 
+# =====================================================
+# PASSWORD / AUTH
+# =====================================================
+
 def set_customer_password(
     db: Session,
     customer: Customer,
     password: str,
 ) -> Customer:
-    """
-    Zet/overschrijft het wachtwoord van een klant.
-    Wordt gebruikt bij password-setup én admin reset flows.
-    """
     customer.hashed_password = get_password_hash(password)
     customer.updated_at = datetime.now(timezone.utc)
     db.add(customer)
@@ -204,9 +234,6 @@ def authenticate_customer(
     email: str,
     password: str,
 ) -> Optional[Customer]:
-    """
-    Helper (nu nog niet gebruikt in app.py): alleen actieve klanten met wachtwoord.
-    """
     customer = get_customer_by_email(db, email=email)
     if not customer or not customer.is_active or not customer.hashed_password:
         return None
@@ -215,20 +242,17 @@ def authenticate_customer(
     return customer
 
 
-# === Update & soft delete voor admin ===
-
+# =====================================================
+# UPDATE / SOFT DELETE
+# =====================================================
 
 def update_customer(
     db: Session,
     customer: Customer,
     customer_in: CustomerUpdate,
 ) -> Customer:
-    """
-    Partiële update: alleen velden die niet None zijn worden overschreven.
-    """
     if customer_in.email is not None:
         customer.email = customer_in.email
-
     if customer_in.first_name is not None:
         customer.first_name = customer_in.first_name
     if customer_in.last_name is not None:
@@ -239,12 +263,10 @@ def update_customer(
         customer.customer_type = customer_in.customer_type
     if customer_in.description is not None:
         customer.description = customer_in.description
-
     if customer_in.company_name is not None:
         customer.company_name = customer_in.company_name
     if customer_in.tax_id is not None:
         customer.tax_id = customer_in.tax_id
-
     if customer_in.address_street is not None:
         customer.address_street = customer_in.address_street
     if customer_in.address_ext_number is not None:
@@ -261,7 +283,6 @@ def update_customer(
         customer.address_postal_code = customer_in.address_postal_code
     if customer_in.address_country is not None:
         customer.address_country = customer_in.address_country
-
     if customer_in.is_active is not None:
         customer.is_active = customer_in.is_active
     if customer_in.is_admin is not None:
@@ -278,9 +299,6 @@ def soft_delete_customer(
     db: Session,
     customer: Customer,
 ) -> Customer:
-    """
-    Soft delete: zet is_active=False en deactivated_at (als kolom bestaat) naar nu.
-    """
     if not customer.is_active:
         return customer
 

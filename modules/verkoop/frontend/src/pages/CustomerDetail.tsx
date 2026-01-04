@@ -67,9 +67,9 @@ const CustomerDetailPage: React.FC = () => {
       setError(null);
       try {
         const [detail, hist] = await Promise.all([
-          api.get<CustomerDetail>(`/admin/customers/${id}`),
+          api.get<CustomerDetail>(`/customers/${id}`),
           api.get<CustomerAssignmentHistoryItem[]>(
-            `/admin/customers/${id}/assignments`
+            `/customers/${id}/assignments`
           ),
         ]);
         setCustomer(detail);
@@ -107,7 +107,7 @@ const CustomerDetailPage: React.FC = () => {
 
     try {
       const updated = await api.post<CustomerDetail>(
-        `/admin/customers/${id}/assign`,
+        `/customers/${id}/assign`,
         {
           seller_code: assignSellerCode.trim(),
           assigned_by: "verkoop-admin-ui",
@@ -121,7 +121,7 @@ const CustomerDetailPage: React.FC = () => {
       );
 
       const hist = await api.get<CustomerAssignmentHistoryItem[]>(
-        `/admin/customers/${id}/assignments`
+        `/customers/${id}/assignments`
       );
       setHistory(hist);
     } catch (err: any) {

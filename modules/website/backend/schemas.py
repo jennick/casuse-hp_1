@@ -6,7 +6,9 @@ from pydantic import BaseModel, EmailStr, validator
 from models import CustomerType
 
 
-# === Auth / Token ===
+# =====================================================
+# Auth / Token
+# =====================================================
 
 class Token(BaseModel):
     access_token: str
@@ -15,11 +17,19 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[EmailStr] = None
+
+    # ⚠️ intern technisch ID (wordt later uitgefaseerd)
     customer_id: Optional[str] = None
+
+    # 🔐 extern, stabiel klant-ID (COMMIT 2)
+    customer_uuid: Optional[UUID] = None
+
     is_admin: Optional[bool] = None
 
 
-# === Public registration ===
+# =====================================================
+# Public registration
+# =====================================================
 
 class RegistrationRequest(BaseModel):
     email: EmailStr
@@ -62,7 +72,9 @@ class RegistrationResponse(BaseModel):
     registration_id: str
 
 
-# === Password setup ===
+# =====================================================
+# Password setup
+# =====================================================
 
 class PasswordSetupTokenInfo(BaseModel):
     status: str
@@ -79,14 +91,18 @@ class PasswordSetupResponse(BaseModel):
     message: str
 
 
-# === Public login ===
+# =====================================================
+# Public login
+# =====================================================
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
 
-# === Admin / customers ===
+# =====================================================
+# Admin / customers – base
+# =====================================================
 
 class CustomerBase(BaseModel):
     email: EmailStr
@@ -115,7 +131,7 @@ class CustomerCreate(CustomerBase):
 
 
 class CustomerUpdate(BaseModel):
-    # voor update zijn alle velden optioneel (partial update)
+    # partial update
     email: Optional[EmailStr] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -139,8 +155,14 @@ class CustomerUpdate(BaseModel):
     is_admin: Optional[bool] = None
 
 
+# =====================================================
+# Admin / customers – list
+# =====================================================
+
 class CustomerListItem(BaseModel):
-    id: UUID
+    id: UUID                          # intern
+    customer_uuid: UUID               # 🔐 extern (COMMIT 2)
+
     email: EmailStr
     first_name: str
     last_name: str
@@ -148,34 +170,14 @@ class CustomerListItem(BaseModel):
     is_active: bool
     created_at: datetime
 
-    # extra velden voor lijstweergave
     company_name: Optional[str] = None
     address_city: Optional[str] = None
     address_state: Optional[str] = None
 
-    # ───── NIEUW: loginstatus en deactivatie ─────
+    # login / portal status
     has_login: bool
     portal_status: Optional[str] = None
     deactivated_at: Optional[datetime] = None
-
-    class Config:
-        orm_mode = True
-
-
-class CustomerDetail(CustomerBase):
-    id: UUID
-    is_active: bool
-    is_admin: bool
-    created_at: datetime
-    updated_at: datetime
-
-    # extra metadata
-    deactivated_at: Optional[datetime] = None
-    hashed_password: Optional[str] = None
-
-    # ───── NIEUW: loginstatus ─────
-    has_login: bool
-    portal_status: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -185,6 +187,36 @@ class CustomersListResponse(BaseModel):
     items: List[CustomerListItem]
     total: int
 
+
+# =====================================================
+# Admin / customers – detail
+# =====================================================
+
+class CustomerResponse(CustomerBase):
+    id: UUID                          # intern
+    customer_uuid: UUID               # 🔐 extern (COMMIT 2)
+
+    is_active: bool
+    is_admin: bool
+
+    created_at: datetime
+    updated_at: datetime
+
+    # extra metadata
+    deactivated_at: Optional[datetime] = None
+    hashed_password: Optional[str] = None
+
+    # login / portal status
+    has_login: bool
+    portal_status: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+# =====================================================
+# Generic responses
+# =====================================================
 
 class SimpleSuccessResponse(BaseModel):
     success: bool
